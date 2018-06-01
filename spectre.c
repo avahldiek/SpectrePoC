@@ -11,9 +11,18 @@
 *
 **********************************************************************/
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+
+#include <unistd.h>
+#include <sys/syscall.h>
+#include <sys/mman.h>
+#include <errno.h>
+#include <string.h>
+
+
 #ifdef _MSC_VER
 #include <intrin.h> /* for rdtsc, rdtscp, clflush */
 #pragma optimize("gt",on)
@@ -33,33 +42,23 @@
 #define NOCLFLUSH
 #endif
 
+#define MPK
+
+#define errExit(msg)    do { perror(msg); exit(EXIT_FAILURE); \
+} while (0)
+
+
 /********************************************************************
 Victim code.
 ********************************************************************/
 unsigned int array1_size = 16;
 uint8_t unused1[64];
-uint8_t array1[16] = {
-  1,
-  2,
-  3,
-  4,
-  5,
-  6,
-  7,
-  8,
-  9,
-  10,
-  11,
-  12,
-  13,
-  14,
-  15,
-  16
-};
+uint8_t * array1; 
+
 uint8_t unused2[64];
 uint8_t array2[256 * 512];
 
-char * secret = "The Magic Words are Squeamish Ossifrage.";
+char * secret;
 
 uint8_t temp = 0; /* Used so compiler won’t optimize out victim_function() */
 
@@ -67,7 +66,7 @@ uint8_t temp = 0; /* Used so compiler won’t optimize out victim_function() */
 /* From https://github.com/torvalds/linux/blob/cb6416592bc2a8b731dabcec0d63cda270764fc6/arch/x86/include/asm/barrier.h#L27 */
 /**
  * array_index_mask_nospec() - generate a mask that is ~0UL when the
- * 	bounds check succeeds and 0 otherwise
+ *  bounds check succeeds and 0 otherwise
  * @index: array element index
  * @size: number of elements in array
  *
@@ -75,29 +74,29 @@ uint8_t temp = 0; /* Used so compiler won’t optimize out victim_function() */
  *     0 - (index < size)
  */
 static inline unsigned long array_index_mask_nospec(unsigned long index,
-		unsigned long size)
+    unsigned long size)
 {
-	unsigned long mask;
+  unsigned long mask;
 
-	__asm__ __volatile__ ("cmp %1,%2; sbb %0,%0;"
-			:"=r" (mask)
-			:"g"(size),"r" (index)
-			:"cc");
-	return mask;
+  __asm__ __volatile__ ("cmp %1,%2; sbb %0,%0;"
+      :"=r" (mask)
+      :"g"(size),"r" (index)
+      :"cc");
+  return mask;
 }
 #endif
 
 void victim_function(size_t x) {
   if (x < array1_size) {
 #ifdef INTEL_MITIGATION
-		/*
-		 * According to Intel et al, the best way to mitigate this is to 
-		 * add a serializing instruction after the boundary check to force
-		 * the retirement of previous instructions before proceeding to 
-		 * the read.
-		 * See https://newsroom.intel.com/wp-content/uploads/sites/11/2018/01/Intel-Analysis-of-Speculative-Execution-Side-Channels.pdf
-		 */
-		_mm_lfence();
+    /*
+     * According to Intel et al, the best way to mitigate this is to 
+     * add a serializing instruction after the boundary check to force
+     * the retirement of previous instructions before proceeding to 
+     * the read.
+     * See https://newsroom.intel.com/wp-content/uploads/sites/11/2018/01/Intel-Analysis-of-Speculative-Execution-Side-Channels.pdf
+     */
+    _mm_lfence();
 #endif
 #ifdef LINUX_KERNEL_MITIGATION
     x &= array_index_mask_nospec(x, array1_size);
@@ -280,6 +279,33 @@ int main(int argc,
   /* Default to a cache hit threshold of 80 */
   int cache_hit_threshold = 80;
 
+  array1 = mmap(NULL, getpagesize(), PROT_READ | PROT_WRITE,
+   MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+
+  secret = mmap(NULL, getpagesize(), PROT_READ | PROT_WRITE,
+   MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+
+  strcpy(secret, "The Magic Words are Squeamish Ossifrage.");
+
+
+ int status;
+ int pkey;
+ #ifdef MPK
+ pkey = pkey_alloc(0,PKEY_DISABLE_ACCESS);
+ if (pkey == -1){
+  int err = errno;
+   printf("%d\n", err==EINVAL);
+   errExit("pkey_alloc");
+ }
+ 
+  status = pkey_mprotect(secret, getpagesize(),
+   PROT_READ | PROT_WRITE, pkey);
+ if (status == -1)
+   errExit("pkey_mprotect");
+
+#endif
+
+
   /* Default for malicious_x is the secret string address */
   size_t malicious_x = (size_t)(secret - (char * ) array1);
   
@@ -379,5 +405,14 @@ int main(int argc,
 
     printf("\n");
   }
+
+#ifdef MPK
+   status = pkey_free(pkey);
+ if (status == -1)
+   errExit("pkey_free");
+
+#endif
+
+
   return (0);
 }

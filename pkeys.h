@@ -32,30 +32,8 @@
   })
 
 
-#if defined(__clang__)
 #define __wrpkru(PKRU_ARG)						\
-  do {									\
-    asm volatile ("1:\n\txor %%ecx, %%ecx\n\txor %%edx, %%edx\n\tmov %0,%%eax\n\t.byte 0x0f,0x01,0xef\n\tcmp %0, %%eax\n\tjne 1b\n\t" \
-		  : : "n" (PKRU_ARG)					\
-		  :"eax", "ecx", "edx");				\
-  } while (0)
-
-#elif defined(__GNUC__) || defined(__GNUG__)
-#define __wrpkru(PKRU_ARG)						\
-  do {									\
-    __label__ erim_start;						\
-  erim_start:								\
-    asm goto ("xor %%ecx, %%ecx\n\txor %%edx, %%edx\n\tmov %0,%%eax\n\t.byte 0x0f,0x01,0xef\n\tcmp %0, %%eax\n\tjne %l1\n\t" \
-	      : : "n" (PKRU_ARG)			\
-	      :"eax", "ecx", "edx" : erim_start);			\
-  } while (0)
-
-#else
-#error "ERIM only supports clang or gcc"
-#endif
-
-#define __unprot_wrpkru(PKRU_ARG)			    \
-  do {									\
+  do {											\
     asm volatile ("xor %%ecx, %%ecx\n\txor %%edx, %%edx\n\tmov %0,%%eax\n\t.byte 0x0f,0x01,0xef\n\t" \
 	      : : "n" (PKRU_ARG)					\
 	      :"eax", "ecx", "edx");			\

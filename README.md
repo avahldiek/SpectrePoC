@@ -1,4 +1,4 @@
-\# SpectrePoC
+# SpectrePoC with Intel MPK mitigation
 
 Proof of concept code for the Spectre CPU exploit showcasing the capabilities of Intel Memory Protection Keys (MPK). This PoC produces two different binaries (`./spectre` and `./spectre-fail`). Both binaries follow the same initial setup including creating an MPK domain, allocating a page in the new domain to store the secret and then denying access to the new domain. From this point onwards the execution has no access to the secret. Both binaries differ when it comes to how they run the victim function. `./spectre` runs the victim function with privileges to access the secret by updating the PKRU register (WRPKRU). On the other hand, `./spectre-fail` does not update the PKRU register and runs the victim function without privileges to access the secret. The training fails and the subsequent speculative execution fails to leak the secret.
 

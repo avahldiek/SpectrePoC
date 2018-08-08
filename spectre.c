@@ -387,6 +387,12 @@ int main(int argc,
     printf("LINUX_KERNEL_MITIGATION_DISABLED ");
   #endif
 
+#ifdef TRAINOUTSIDE
+    printf("MPK_TRAINOUTSIDE_ENABLED ");
+#else
+    printf("MPK_TRAINOUTSIDE_DISABLED ");
+#endif
+
   printf("\n");
 
   printf("Reading %d bytes:\n", len);

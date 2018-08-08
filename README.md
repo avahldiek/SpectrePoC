@@ -1,6 +1,8 @@
-# SpectrePoC
+\# SpectrePoC
 
-Proof of concept code for the Spectre CPU exploit.
+Proof of concept code for the Spectre CPU exploit showcasing the capabilities of Intel Memory Protection Keys (MPK). This PoC produces two different binaries (`./spectre` and `./spectre-fail`). Both binaries follow the same initial setup including creating an MPK domain, allocating a page in the new domain to store the secret and then denying access to the new domain. From this point onwards the execution has no access to the secret. Both binaries differ when it comes to how they run the victim function. `./spectre` runs the victim function with privileges to access the secret by updating the PKRU register (WRPKRU). On the other hand, `./spectre-fail` does not update the PKRU register and runs the victim function without privileges to access the secret. The training fails and the subsequent speculative execution fails to leak the secret.
+
+This shows that in an application with different MPK domains, an attacker has to alter the control flow in such a way that the victim function executes with privileges to access the secret. Otherwise the training fails and no secrets are leaked.
 
 ## Attribution
 
@@ -24,7 +26,7 @@ Building is as easy as:
 
 `make`
 
-The output binary is `./spectre.out`.
+The output binary are `./spectre` and `./spectre-fail`.
 
 ### Mitigations
 
@@ -124,15 +126,15 @@ If you want to build it manually, make sure to disable all optimisations (aka, d
 
 To run spectre with default cache hit threshold of 80, and the secret example string "The Magic Words are Squeamish Ossifrage." as the target, run `./spectre.out` with no command line arguments.
 
-**Example:** `./spectre.out`
+**Example:** `./spectre`
 
 The cache hit threshold can be specified as the first command line argument. It must be a whole positive integer.
 
-**Example:** `./spectre.out 80`
+**Example:** `./spectre 80`
 
 A custom target address and length can be given as the second and third command line arguments, respectively.
 
-**Example:** `./spectre.out 80 12345678 128`
+**Example:** `./spectre 80 12345678 128`
 
 ## Tweaking
 
@@ -149,7 +151,7 @@ Feel free to add your results to the "Results" issue. Include your cache hit thr
 
 The following was output on an Intel(R) Core(TM) i7-8650U CPU, with a cache hit threshold of 20:
 
-`./spectre.out 20:`
+`./spectre 20:`
 
 ```
 Version: commit 04c47db298920eb4d1b7c1bafcd0017a72d415bc

